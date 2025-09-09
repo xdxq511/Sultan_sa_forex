@@ -1,33 +1,41 @@
-import os, time, requests
-from fastapi import FastAPI, Request, HTTPException
-
-BOT_TOKEN = os.environ["BOT_TOKEN"]
-CHAT_ID   = os.environ["CHAT_ID"]
-SECRET    = os.environ["SECRET_TOKEN"]  # لازم يطابق اللي بتحطه في TradingView
-
-TG_URL = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+from fastapi import FastAPI, Request
+import requests
 
 app = FastAPI()
 
-def send_tg(text):
-    requests.post(TG_URL, json={"chat_id": CHAT_ID, "text": text})
+BOT_TOKEN = "توكن_البوت_اللي عطاك BotFather"
+CHAT_ID = "معرّف القناة (chat_id)"  # لازم البوت يكون أدمن بالقناة
+SECRET_TOKEN = "Ss11223344s"  # نفس اللي بالكود في TradingView
+
+def send_tg(msg: str):
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    data = {"chat_id": CHAT_ID, "text": msg}
+    requests.post(url, data=data)
 
 @app.get("/")
-def root():
+def home():
     return {"ok": True, "msg": "VIP 1M bot up"}
 
 @app.post("/hook")
-async def hook(req: Request):
-    data = await req.json()
-    if data.get("token") != SECRET:
-        raise HTTPException(status_code=403, detail="Bad token")
-
-    pair = data.get("pair","UNKNOWN")
-    tf   = data.get("tf","M1")
-    side = data.get("side","PUT").upper()  # CALL/PUT
-    ts   = int(data.get("ts", time.time()))
-    hhmm = time.strftime("%H:%M", time.localtime(ts))
-    arrow = "⬆️" if side=="CALL" else "⬇️"
-    text = f"VIP 1M-BOT GROUP\n{pair} | {tf} | {hhmm} | {side} {arrow}\n#QUOTEX"
+async def hook(request: Request):
+    data = await request.json()
+    if data.get("token") != SECRET_TOKEN:
+        return {"ok": False, "error": "Invalid token"}
+    
+    # نص الرسالة اللي يوصل التليجرام
+    text = f"VIP 1M-BOT GROUP\n{data['pair']} | {data['tf']} | {data['side']} ⬆️⬇️\nPrice: {data['price']}"
     send_tg(text)
-    return {"ok": True}
+    return {"ok": True, "forwarded": True}
+
+# مسار اختبار يدوي
+@app.get("/hook-test")
+def hook_test():
+    test_data = {
+        "pair": "EURUSD",
+        "tf": "1",
+        "side": "CALL",
+        "price": "1.1770"
+    }
+    text = f"VIP 1M-BOT GROUP\n{test_data['pair']} | {test_data['tf']} | {test_data['side']} ⬆️\nPrice: {test_data['price']}"
+    send_tg(text)
+    return {"ok": True, "msg": "Test message sent to Telegram"}
